@@ -1,0 +1,131 @@
+
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performans Trend Analizi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.4.1/math.js"></script>
+</head>
+<body>
+    <h1>Test Performansı ve Tahminler</h1>
+    <p>Bu grafik, test performansınızı ve tahmini gelişimi göstermektedir.</p>
+    
+    <canvas id="performanceChart" width="400" height="200"></canvas>
+
+    <script>
+        // Girdiğiniz veri seti
+        const scores = [23.5, 27.5, 43.3, 40.7, 35.6, 43.3, 40.8, 47.5, 20, 43.5, 29.7];
+        const tests = Array.from({ length: scores.length }, (_, i) => i + 1);
+
+        // Lineer regresyon hesabı (basit bir doğrusal regresyon)
+        function linearRegression(x, y) {
+            const n = x.length;
+            const sumX = math.sum(x);
+            const sumY = math.sum(y);
+            const sumXY = math.sum(x.map((xi, i) => xi * y[i]));
+            const sumX2 = math.sum(x.map(xi => xi * xi));
+
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            return { slope, intercept };
+        }
+
+        // Lineer regresyon modelini hesapla
+        const { slope, intercept } = linearRegression(tests, scores);
+
+        // Gelecekteki test tahminlerini oluştur
+        const futureTests = Array.from({ length: 30 }, (_, i) => i + 1);
+        const predictedScores = futureTests.map(x => slope * x + intercept);
+
+        // %80'e ulaşma tahmini
+        const testToReach80 = futureTests.find((x, index) => predictedScores[index] >= 80) || null;
+
+        // Grafik verilerini hazırlama
+        const data = {
+            labels: tests.concat(futureTests),
+            datasets: [
+                {
+                    label: 'Mevcut Performans',
+                    data: scores,
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0, 0, 255, 0.2)',
+                    fill: true,
+                    lineTension: 0.1
+                },
+                {
+                    label: 'Tahmini Performans',
+                    data: predictedScores,
+                    borderColor: 'green',
+                    backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                    fill: false,
+                    lineTension: 0.1
+                }
+            ]
+        };
+
+        // Grafik ayarları
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Test Sayısı'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Performans (%)'
+                        },
+                        min: 0,
+                        max: 100
+                    }
+                },
+                plugins: {
+                    annotation: {
+                        annotations: [
+                            {
+                                type: 'line',
+                                yMin: 80,
+                                yMax: 80,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                label: {
+                                    content: '%80 Hedefi',
+                                    enabled: true,
+                                    position: 'center'
+                                }
+                            },
+                            testToReach80 && {
+                                type: 'line',
+                                xMin: testToReach80,
+                                xMax: testToReach80,
+                                borderColor: 'purple',
+                                borderWidth: 2,
+                                label: {
+                                    content: `Test ${testToReach80}`,
+                                    enabled: true,
+                                    position: 'top'
+                                }
+                            }
+                        ].filter(Boolean)
+                    }
+                }
+            }
+        };
+
+        // Grafiği oluşturma
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(ctx, config);
+    </script>
+</body>
+</html>
+
