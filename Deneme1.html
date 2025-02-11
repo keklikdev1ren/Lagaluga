@@ -3,127 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performans Trend Analizi</title>
+    <title>Performans Grafiği</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.4.1/math.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #inputArea { margin-bottom: 20px; }
+        canvas { max-width: 100%; }
+    </style>
 </head>
 <body>
-    <h1>Test Performansı ve Tahminler</h1>
-    <p>Bu grafik, test performansınızı ve tahmini gelişimi göstermektedir.</p>
-    
-    <canvas id="performanceChart" width="400" height="200"></canvas>
 
-    <script>
-        // Girdiğiniz veri seti
-        const scores = [23.5, 27.5, 43.3, 40.7, 35.6, 43.3, 40.8, 47.5, 20, 43.5, 29.7];
-        const tests = Array.from({ length: scores.length }, (_, i) => i + 1);
+<h1>Test Performansı Analizi</h1>
+<p>Lütfen test sonuçlarınızı % olarak virgülle ayırarak girin (örnek: 23.5,27.5,43.3,40.7):</p>
 
-        // Lineer regresyon hesabı (basit bir doğrusal regresyon)
-        function linearRegression(x, y) {
-            const n = x.length;
-            const sumX = math.sum(x);
-            const sumY = math.sum(y);
-            const sumXY = math.sum(x.map((xi, i) => xi * y[i]));
-            const sumX2 = math.sum(x.map(xi => xi * xi));
+<div id="inputArea">
+    <textarea id="dataInput" rows="3" cols="50" placeholder="23.5,27.5,43.3,40.7"></textarea><br>
+    <button onclick="drawChart()">Grafiği Çiz</button>
+</div>
 
-            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-            const intercept = (sumY - slope * sumX) / n;
+<canvas id="performanceChart"></canvas>
 
-            return { slope, intercept };
-        }
+<script>
+function drawChart() {
+    const rawData = document.getElementById('dataInput').value;
+    if (!rawData) {
+        alert('Lütfen geçerli veriler girin.');
+        return;
+    }
 
-        // Lineer regresyon modelini hesapla
-        const { slope, intercept } = linearRegression(tests, scores);
+    const scores = rawData.split(',').map(Number).filter(val => !isNaN(val));
+    const tests = Array.from({ length: scores.length }, (_, i) => i + 1);
 
-        // Gelecekteki test tahminlerini oluştur
-        const futureTests = Array.from({ length: 30 }, (_, i) => i + 1);
-        const predictedScores = futureTests.map(x => slope * x + intercept);
+    if (scores.length === 0) {
+        alert('Lütfen geçerli sayısal değerler girin.');
+        return;
+    }
 
-        // %80'e ulaşma tahmini
-        const testToReach80 = futureTests.find((x, index) => predictedScores[index] >= 80) || null;
+    // Lineer regresyon hesaplama
+    function linearRegression(x, y) {
+        const n = x.length;
+        const sumX = math.sum(x);
+        const sumY = math.sum(y);
+        const sumXY = math.sum(x.map((xi, i) => xi * y[i]));
+        const sumX2 = math.sum(x.map(xi => xi * xi));
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        return { slope, intercept };
+    }
 
-        // Grafik verilerini hazırlama
-        const data = {
-            labels: tests.concat(futureTests),
+    const { slope, intercept } = linearRegression(tests, scores);
+    const futureTests = Array.from({ length: 15 }, (_, i) => i + 1);
+    const predictedScores = futureTests.map(x => slope * x + intercept);
+
+    const testToReach80 = futureTests.find((x, index) => predictedScores[index] >= 80);
+    const testToReach100 = futureTests.find((x, index) => predictedScores[index] >= 100);
+
+    // Mevcut grafik varsa temizle
+    if (window.performanceChart) {
+        window.performanceChart.destroy();
+    }
+
+    // Grafik çizimi
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    window.performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: futureTests,
             datasets: [
                 {
                     label: 'Mevcut Performans',
                     data: scores,
                     borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.2)',
-                    fill: true,
-                    lineTension: 0.1
+                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                    fill: true
                 },
                 {
                     label: 'Tahmini Performans',
                     data: predictedScores,
-                    borderColor: 'green',
-                    backgroundColor: 'rgba(0, 255, 0, 0.2)',
-                    fill: false,
-                    lineTension: 0.1
+                    borderColor: 'orange',
+                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                    fill: false
                 }
             ]
-        };
-
-        // Grafik ayarları
-        const config = {
-            type: 'line',
-            data: data,
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Test Sayısı'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Performans (%)'
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Test Sayısı' }, min: 1, max: 15 },
+                y: { title: { display: true, text: 'Performans (%)' }, min: 0, max: 120 }
+            },
+            plugins: {
+                annotation: {
+                    annotations: [
+                        {
+                            type: 'line',
+                            yMin: 80,
+                            yMax: 80,
+                            borderColor: 'red',
+                            borderWidth: 2,
+                            label: { content: '%80 Hedefi', enabled: true, position: 'start' }
                         },
-                        min: 0,
-                        max: 100
-                    }
-                },
-                plugins: {
-                    annotation: {
-                        annotations: [
-                            {
-                                type: 'line',
-                                yMin: 80,
-                                yMax: 80,
-                                borderColor: 'red',
-                                borderWidth: 2,
-                                label: {
-                                    content: '%80 Hedefi',
-                                    enabled: true,
-                                    position: 'center'
-                                }
-                            },
-                            testToReach80 && {
-                                type: 'line',
-                                xMin: testToReach80,
-                                xMax: testToReach80,
-                                borderColor: 'purple',
-                                borderWidth: 2,
-                                label: {
-                                    content: `Test ${testToReach80}`,
-                                    enabled: true,
-                                    position: 'top'
-                                }
-                            }
-                        ].filter(Boolean)
-                    }
+                        {
+                            type: 'line',
+                            yMin: 100,
+                            yMax: 100,
+                            borderColor: 'pink',
+                            borderWidth: 2,
+                            label: { content: '%100 Hedefi', enabled: true, position: 'start' }
+                        },
+                        testToReach80 && {
+                            type: 'line',
+                            xMin: testToReach80,
+                            xMax: testToReach80,
+                            borderColor: 'green',
+                            borderWidth: 2,
+                            label: { content: `Test ${testToReach80} (%80)`, enabled: true, position: 'top' }
+                        },
+                        testToReach100 && {
+                            type: 'line',
+                            xMin: testToReach100,
+                            xMax: testToReach100,
+                            borderColor: 'pink',
+                            borderWidth: 2,
+                            label: { content: `Test ${testToReach100} (%100)`, enabled: true, position: 'top' }
+                        }
+                    ].filter(Boolean)
                 }
             }
-        };
+        }
+    });
+}
+</script>
 
-        // Grafiği oluşturma
-        const ctx = document.getElementById('performanceChart').getContext('2d');
-        new Chart(ctx, config);
-    </script>
 </body>
 </html>
-
