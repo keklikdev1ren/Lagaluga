@@ -3,138 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performans Grafiği</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.4.1/math.js"></script>
+    <title>Performans Takip ve Tahmin Aracı</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #inputArea { margin-bottom: 20px; }
-        canvas { max-width: 100%; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        input {
+            padding: 8px;
+            margin: 5px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
+    <h1>Performans Takip ve Tahmin Aracı</h1>
+    
+    <div class="input-group">
+        <label for="target">Hedef Puan:</label><br>
+        <input type="number" id="target" step="0.1" placeholder="Örn: 80.0"><br>
+        
+        <label for="scores">Geçmiş Puanlar (virgülle ayırın):</label><br>
+        <input type="text" id="scores" placeholder="Örn: 54.3, 34.5, 62.3"><br>
+        
+        <button onclick="analyze()">Analiz Et</button>
+    </div>
 
-<h1>Test Performansı Analizi</h1>
-<p>Lütfen test sonuçlarınızı % olarak virgülle ayırarak girin (örnek: 23.5,27.5,43.3,40.7):</p>
+    <div id="result"></div>
+    <canvas id="chart"></canvas>
 
-<div id="inputArea">
-    <textarea id="dataInput" rows="3" cols="50" placeholder="23.5,27.5,43.3,40.7"></textarea><br>
-    <button onclick="drawChart()">Grafiği Çiz</button>
-</div>
+    <script>
+        let myChart = null;
 
-<canvas id="performanceChart"></canvas>
+        function analyze() {
+            const targetScore = parseFloat(document.getElementById('target').value);
+            const scoresText = document.getElementById('scores').value;
+            const scores = scoresText.split(',').map(s => parseFloat(s.trim())).filter(s => !isNaN(s));
 
-<script>
-function drawChart() {
-    const rawData = document.getElementById('dataInput').value;
-    if (!rawData) {
-        alert('Lütfen geçerli veriler girin.');
-        return;
-    }
-
-    const scores = rawData.split(',').map(Number).filter(val => !isNaN(val));
-    const tests = Array.from({ length: scores.length }, (_, i) => i + 1);
-
-    if (scores.length === 0) {
-        alert('Lütfen geçerli sayısal değerler girin.');
-        return;
-    }
-
-    // Lineer regresyon hesaplama
-    function linearRegression(x, y) {
-        const n = x.length;
-        const sumX = math.sum(x);
-        const sumY = math.sum(y);
-        const sumXY = math.sum(x.map((xi, i) => xi * y[i]));
-        const sumX2 = math.sum(x.map(xi => xi * xi));
-        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-        const intercept = (sumY - slope * sumX) / n;
-        return { slope, intercept };
-    }
-
-    const { slope, intercept } = linearRegression(tests, scores);
-    const futureTests = Array.from({ length: 15 }, (_, i) => i + 1);
-    const predictedScores = futureTests.map(x => slope * x + intercept);
-
-    const testToReach80 = futureTests.find((x, index) => predictedScores[index] >= 80);
-    const testToReach100 = futureTests.find((x, index) => predictedScores[index] >= 100);
-
-    // Mevcut grafik varsa temizle
-    if (window.performanceChart) {
-        window.performanceChart.destroy();
-    }
-
-    // Grafik çizimi
-    const ctx = document.getElementById('performanceChart').getContext('2d');
-    window.performanceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: futureTests,
-            datasets: [
-                {
-                    label: 'Mevcut Performans',
-                    data: scores,
-                    borderColor: 'blue',
-                    backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                    fill: true
-                },
-                {
-                    label: 'Tahmini Performans',
-                    data: predictedScores,
-                    borderColor: 'orange',
-                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                    fill: false
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { title: { display: true, text: 'Test Sayısı' }, min: 1, max: 15 },
-                y: { title: { display: true, text: 'Performans (%)' }, min: 0, max: 120 }
-            },
-            plugins: {
-                annotation: {
-                    annotations: [
-                        {
-                            type: 'line',
-                            yMin: 80,
-                            yMax: 80,
-                            borderColor: 'red',
-                            borderWidth: 2,
-                            label: { content: '%80 Hedefi', enabled: true, position: 'start' }
-                        },
-                        {
-                            type: 'line',
-                            yMin: 100,
-                            yMax: 100,
-                            borderColor: 'pink',
-                            borderWidth: 2,
-                            label: { content: '%100 Hedefi', enabled: true, position: 'start' }
-                        },
-                        testToReach80 && {
-                            type: 'line',
-                            xMin: testToReach80,
-                            xMax: testToReach80,
-                            borderColor: 'green',
-                            borderWidth: 2,
-                            label: { content: `Test ${testToReach80} (%80)`, enabled: true, position: 'top' }
-                        },
-                        testToReach100 && {
-                            type: 'line',
-                            xMin: testToReach100,
-                            xMax: testToReach100,
-                            borderColor: 'pink',
-                            borderWidth: 2,
-                            label: { content: `Test ${testToReach100} (%100)`, enabled: true, position: 'top' }
-                        }
-                    ].filter(Boolean)
-                }
+            if (isNaN(targetScore) || scores.length < 2) {
+                alert('Lütfen geçerli bir hedef puan ve en az 2 geçmiş puan girin.');
+                return;
             }
-        }
-    });
-}
-</script>
 
+            // Linear regression için hesaplamalar
+            const n = scores.length;
+            const x = Array.from({length: n}, (_, i) => i + 1);
+            const y = scores;
+            
+            const sumX = x.reduce((a, b) => a + b, 0);
+            const sumY = y.reduce((a, b) => a + b, 0);
+            const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
+            const sumXX = x.reduce((a, b) => a + b * b, 0);
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            // Hedefe ulaşma tahmini
+            const estimatedTests = Math.ceil((targetScore - intercept) / slope) - n;
+            
+            // Sonuçları göster
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <h3>Analiz Sonuçları:</h3>
+                <p>Mevcut ilerleme hızı: ${slope.toFixed(2)} puan/test</p>
+                <p>Başlangıç seviyesi: ${intercept.toFixed(2)} puan</p>
+                <p>Hedefe ulaşmak için gereken yaklaşık test sayısı: ${estimatedTests} test</p>
+            `;
+
+            // Grafik oluştur
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            // Tahmin çizgisi için noktalar
+            const futureDots = 10;
+            const allX = [...x, ...Array.from({length: futureDots}, (_, i) => n + i + 1)];
+            const predictedY = allX.map(xi => slope * xi + intercept);
+
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allX,
+                    datasets: [{
+                        label: 'Mevcut Performans',
+                        data: [...scores, ...Array(futureDots).fill(null)],
+                        borderColor: 'orange',
+                        backgroundColor: 'orange',
+                        pointRadius: 5
+                    }, {
+                        label: 'Tahmini Performans',
+                        data: predictedY,
+                        borderColor: 'blue',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }, {
+                        label: 'Hedef',
+                        data: Array(allX.length).fill(targetScore),
+                        borderColor: 'red',
+                        borderDash: [2, 2],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: Math.max(targetScore * 1.2, Math.max(...scores) * 1.2)
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Test Sayısı'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
